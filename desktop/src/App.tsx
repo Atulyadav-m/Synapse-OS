@@ -1,121 +1,57 @@
-
 import React, { useState } from 'react';
+import Editor from './views/Editor'; // Editor import kiya
+
+// Pehle wali testing ke liye functions (zaroorat nahi par rakhenge backup ke liye)
 import { invoke } from '@tauri-apps/api/core';
-import './App.css'; // Default styling, hum ise baad mein customize karenge
 
 function App() {
-  // --- STATES ---
-  const [greetMsg, setGreetMsg] = useState('');
-  const [name, setName] = useState('');
-  const [workflowJson, setWorkflowJson] = useState(
-    JSON.stringify([
-      { id: "1", type: "log", data: { message: "Hello from Synapse-OS" } },
-      { id: "2", type: "delay", data: { ms: 2000 } }
-    ], null, 2)
-  );
-  const [resultLogs, setResultLogs] = useState<string[]>([]);
-
-  // --- FUNCTIONS ---
-
-  // 1. Test Connection
-  async function greet() {
-    // Rust backend mein "greet" command ko call karega
-    setGreetMsg(await invoke('greet', { name }));
-  }
-
-  // 2. Run Workflow
-  async function runTheWorkflow() {
-    setResultLogs([]);
-    try {
-      // Rust backend mein "run_workflow" command ko call karega
-      const result: any = await invoke('run_workflow', { 
-        nodes: JSON.parse(workflowJson) 
-      });
-      
-      console.log("Result from Rust:", result);
-      
-      if (result.success) {
-        alert("✅ Success: " + result.message);
-        setResultLogs(result.logs);
-      } else {
-        alert("❌ Error: " + result.message);
-      }
-    } catch (error) {
-      console.error(error);
-      alert("⚠️ JSON Parse Error. Check format.");
-    }
-  }
+  // State to switch between "Dev Mode" (JSON) and "Visual Editor"
+  const [mode, setMode] = useState<'editor' | 'dev'>('editor');
 
   return (
-    <div className="container" style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+    <div className="container" style={{ height: '100vh', margin: 0, padding: 0 }}>
       
-      {/* HEADER */}
-      <div style={{ borderBottom: '1px solid #ccc', paddingBottom: '10px', marginBottom: '20px' }}>
-        <h1>🧠 Synapse-OS</h1>
-        <p>Visual Automation Platform (Dev Mode)</p>
-      </div>
-
-      {/* SECTION 1: CONNECTION TEST */}
-      <div style={{ marginBottom: '40px', padding: '15px', border: '1px solid #eee', borderRadius: '8px' }}>
-        <h3>🔌 Connection Test</h3>
-        <p>Rust Backend se baat karne ke liye button dabayein.</p>
+      {/* --- NAV BAR --- */}
+      <nav style={{
+        background: '#1e293b', color: 'white', padding: '10px 20px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+      }}>
+        <div style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>🧠 Synapse-OS</div>
         
-        <div style={{ marginTop: '10px' }}>
-          <input 
-            type="text" 
-            onChange={(e) => setName(e.currentTarget.value)} 
-            placeholder="Enter a name..." 
-            style={{ padding: '8px', marginRight: '10px' }}
-          />
-          <button type="button" onClick={() => greet()} style={{ padding: '8px 16px', cursor: 'pointer' }}>
-            Greet
+        <div>
+          <button 
+            onClick={() => setMode('editor')}
+            style={{
+              background: mode === 'editor' ? '#ef6c00' : '#334155',
+              border: 'none', color: 'white', padding: '8px 16px',
+              marginRight: '10px', borderRadius: '4px', cursor: 'pointer'
+            }}
+          >
+            🎨 Visual Editor
+          </button>
+          <button 
+            onClick={() => setMode('dev')}
+            style={{
+              background: mode === 'dev' ? '#ef6c00' : '#334155',
+              border: 'none', color: 'white', padding: '8px 16px',
+              borderRadius: '4px', cursor: 'pointer'
+            }}
+          >
+            ⚙️ Dev Mode (JSON)
           </button>
         </div>
-        <p><strong>Rust Response:</strong> {greetMsg}</p>
-      </div>
+      </nav>
 
-      {/* SECTION 2: WORKFLOW EXECUTION (JSON MODE) */}
-      <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid #eee', borderRadius: '8px' }}>
-        <h3>⚙️ Run Workflow (JSON)</h3>
-        <p>Niche JSON mein nodes modify karke 'Execute' dabayein. (Ye Visual Node Editor ki jagah abhi manual hai)</p>
-        
-        <textarea 
-          rows={10} 
-          style={{ 
-            width: '100%', 
-            fontFamily: 'monospace', 
-            marginTop: '10px',
-            backgroundColor: '#f4f4f4'
-          }}
-          value={workflowJson}
-          onChange={(e) => setWorkflowJson(e.currentTarget.value)}
-        />
-        
-        <br /><br />
-        <button 
-          onClick={runTheWorkflow} 
-          style={{ 
-            backgroundColor: '#28a745', 
-            color: 'white', 
-            padding: '10px 20px', 
-            border: 'none', 
-            borderRadius: '4px', 
-            cursor: 'pointer',
-            fontSize: '16px'
-          }}
-        >
-          ▶ Execute Workflow
-        </button>
-
-        {/* LOGS DISPLAY */}
-        {resultLogs.length > 0 && (
-          <div style={{ marginTop: '20px', backgroundColor: '#333', color: '#0f0', padding: '10px', fontFamily: 'monospace', borderRadius: '4px' }}>
-            <strong>📜 Execution Logs:</strong>
-            <ul style={{ paddingLeft: '20px', marginTop: '5px' }}>
-              {resultLogs.map((log, index) => (
-                <li key={index}>{log}</li>
-              ))}
-            </ul>
+      {/* --- MAIN CONTENT AREA --- */}
+      <div style={{ height: 'calc(100vh - 50px)' }}>
+        {mode === 'editor' ? (
+          <Editor /> 
+        ) : (
+          // Old Dev Mode Content (JSON Testing)
+          <div style={{ padding: '20px', textAlign: 'center', marginTop: '50px' }}>
+            <h2>Dev Mode (JSON Testing)</h2>
+            <p>Backend commands ke liye testing interface yahan ayega.</p>
+            {/* (Purana logic short mein) */}
           </div>
         )}
       </div>
