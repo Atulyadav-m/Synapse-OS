@@ -1,17 +1,12 @@
-
-// Synapse-OS: Tauri Commands
-// Ye file woh functions hai jo React UI se call honge.
-
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use enigo::{Enigo, MouseControllable, KeyControllable, Keyboard, Key};
 
 // --- DATA TYPES ---
-// Ye define karta hai ki Node ka data structure kaise hoga
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowNode {
     pub id: String,
-    #[serde(rename = "type")] // "type" Rust mein reserved keyword hai
+    #[serde(rename = "type")]
     pub node_type: String,
     pub data: serde_json::Value,
 }
@@ -25,46 +20,58 @@ pub struct ExecutionResult {
 
 // --- COMMANDS ---
 
-/// Command 1: Simple Connection Test
-/// Ye check karne ke liye hai ki Backend chal raha hai ya nahi.
 #[tauri::command]
 pub fn greet(name: &str) -> String {
     format!("Hello, {}! Synapse-OS Backend is online.", name)
 }
 
-/// Command 2: Run Workflow (The Main Heart)
-/// React se workflow (nodes list) aayegi, yeh execute karega.
 #[tauri::command]
 pub async fn run_workflow(nodes: Vec<WorkflowNode>) -> Result<ExecutionResult, String> {
     println!("🚀 Workflow Execution Started...");
-    println!("📦 Total Nodes Received: {}", nodes.len());
-
+    
+    // Enigo setup (Mouse/Keyboard Controller)
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    
     let mut logs = Vec::new();
     let mut success_count = 0;
 
-    // Abhi ke liye hum logic simulate kar rahe hain.
-    // Baad mein isme hum "Core Engine" ko call karenge.
-    
     for node in nodes {
-        println!("⚙️ Executing Node: {} ({})", node.id, node.node_type);
-        logs.push(format!("Processing node: {} ({})", node.id, node.node_type));
-
-        // Mock Logic: Different nodes ke liye alag behavior
+        println!("⚙️ Executing Node: {}", node.node_type);
+        
+        // --- NEW LOGIC: REAL AUTOMATION ---
         match node.node_type.as_str() {
             "log" => {
                 let msg = node.data["message"].as_str().unwrap_or("No message");
-                logs.push(format!("LOG OUTPUT: {}", msg));
+                logs.push(format!("LOG: {}", msg));
             }
+            
+            "mouse_move" => {
+                let x = node.data["x"].as_u64().unwrap_or(100);
+                let y = node.data["y"].as_u64().unwrap_or(100);
+                logs.push(format!("🖱️ Moving mouse to ({}, {})", x, y));
+                enigo.mouse_move_to(x as i32, y as i32).map_err(|e| e.to_string())?;
+                // Thoda wait taaki user dekh sake
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+
+            "mouse_click" => {
+                logs.push("🖱️ Clicking Left Mouse Button".to_string());
+                enigo.mouse_click(MouseButton::Left).map_err(|e| e.to_string())?;
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+
+            "type_text" => {
+                let text = node.data["text"].as_str().unwrap_or("Hello World");
+                logs.push(format!("⌨️ Typing: {}", text));
+                enigo.key_sequence(text).map_err(|e| e.to_string())?;
+            }
+
             "delay" => {
                 let ms = node.data["ms"].as_u64().unwrap_or(1000);
-                // Fake delay ke liye tokio::time::sleep use karenge future mein
-                logs.push(format!("Waiting for {}ms...", ms));
+                logs.push(format!("⏳ Waiting {}ms...", ms));
+                std::thread::sleep(std::time::Duration::from_millis(ms));
             }
-            "file_move" => {
-                let src = node.data["source"].as_str().unwrap_or("?");
-                let dest = node.data["dest"].as_str().unwrap_or("?");
-                logs.push(format!("Moving {} to {}", src, dest));
-            }
+
             _ => {
                 logs.push(format!("⚠️ Unknown node type: {}", node.node_type));
             }
@@ -73,29 +80,12 @@ pub async fn run_workflow(nodes: Vec<WorkflowNode>) -> Result<ExecutionResult, S
         success_count += 1;
     }
 
-    println!("✅ Workflow Completed.");
-
     Ok(ExecutionResult {
         success: true,
-        message: format!("Executed {} nodes successfully.", success_count),
+        message: format!("Automation Complete! Executed {} nodes.", success_count),
         logs,
     })
 }
 
-/// Command 3: System Info
-/// User ko batayega ki CPU/Memory kitni khali hai (Load check).
-#[tauri::command]
-pub fn get_system_info() -> SystemInfo {
-    SystemInfo {
-        os: std::env::consts::OS.to_string(),
-        arch: std::env::consts::ARCH.to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-    }
-}
-
-#[derive(Serialize)]
-pub struct SystemInfo {
-    os: String,
-    arch: String,
-    version: String,
-}
+// Note: MouseButton enum is needed. Enigo exports it usually, 
+// if compile error occurs, ensure version matches or import properly.
